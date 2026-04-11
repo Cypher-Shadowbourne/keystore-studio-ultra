@@ -1,0 +1,31 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Rust
+src-tauri/target/
+Cargo.lock
+
+# Tauri
+src-tauri/binaries/
+src-tauri/gen/
+src-tauri/icons/*.ico
+src-tauri/icons/*.png
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App Data (Local Store)
+projects.json
