@@ -68,5 +68,9 @@ The project uses a hard-locked Tauri **2.3.0** stack across both NPM and Cargo t
 - [ ] Windows code-signing for the application's own binary.
 - [ ] Batch signing for multiple architecture-specific APKs.
 
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
 ---
 *Crafted for the elite developer by Cypher Shadowbourne.*
