@@ -24,3 +24,6 @@ tauri-plugin-dialog = "2.3.0"
 tauri-plugin-fs = "2.3.0"
 dirs = "6.0.0"
 glob = "0.3.0"
+
+[dev-dependencies]
+tempfile = "3.10.0"
