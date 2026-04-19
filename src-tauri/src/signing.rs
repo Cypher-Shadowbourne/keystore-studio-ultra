@@ -34,7 +34,7 @@ pub fn rotate_keystore_password(input: PasswordRotationInput) -> Result<CommandR
     let (stdout, stderr) = run_command("keytool", &args)?;
     Ok(CommandResult {
         success: true,
-        command: std::iter::once("keytool".to_string()).chain(args).collect(),
+        command: std::iter::once("keytool".to_string()).chain(redact_args(&args)).collect(),
         stdout,
         stderr,
         output_path: None,
@@ -61,7 +61,7 @@ pub fn export_certificate(input: CertificateExportInput) -> Result<CommandResult
     let (stdout, stderr) = run_command("keytool", &args)?;
     Ok(CommandResult {
         success: true,
-        command: std::iter::once("keytool".to_string()).chain(args).collect(),
+        command: std::iter::once("keytool".to_string()).chain(redact_args(&args)).collect(),
         stdout,
         stderr,
         output_path: Some(input.output_path.clone()),
@@ -227,7 +227,7 @@ pub fn sign_apk(input: SigningInput) -> Result<CommandResult, AppError> {
     if !final_stderr.is_empty() { final_stderr.push_str("\n"); }
     final_stderr.push_str(&stderr);
 
-    used_commands.push(std::iter::once("apksigner".to_string()).chain(args).collect::<Vec<_>>().join(" "));
+    used_commands.push(std::iter::once("apksigner".to_string()).chain(redact_args(&args)).collect::<Vec<_>>().join(" "));
 
     Ok(CommandResult {
         success: true,
@@ -297,11 +297,39 @@ pub fn sign_jar_or_bundle(input: SigningInput) -> Result<CommandResult, AppError
     let (stdout, stderr) = run_command("jarsigner", &args)?;
     Ok(CommandResult {
         success: true,
-        command: std::iter::once("jarsigner".to_string()).chain(args).collect(),
+        command: std::iter::once("jarsigner".to_string()).chain(redact_args(&args)).collect(),
         stdout,
         stderr,
         output_path: Some(out_path.to_string_lossy().to_string()),
     })
+}
+
+fn redact_args(args: &[String]) -> Vec<String> {
+    let mut redacted = Vec::new();
+    let mut skip_next = false;
+
+    let sensitive_flags = [
+        "-storepass",
+        "-keypass",
+        "-keypasswd",
+        "-new",
+        "--ks-pass",
+        "--key-pass",
+    ];
+
+    for arg in args {
+        if skip_next {
+            redacted.push("***".to_string());
+            skip_next = false;
+        } else if sensitive_flags.contains(&arg.as_str()) {
+            redacted.push(arg.clone());
+            skip_next = true;
+        } else {
+            redacted.push(arg.clone());
+        }
+    }
+
+    redacted
 }
 
 fn capture(source: &str, pattern: &str) -> Option<String> {
@@ -310,4 +338,41 @@ fn capture(source: &str, pattern: &str) -> Option<String> {
         .captures(source)?
         .get(1)
         .map(|m| m.as_str().trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_redact_args() {
+        let args: Vec<String> = vec![
+            "keytool".to_string(),
+            "-storepass".to_string(),
+            "my_super_secret_password".to_string(),
+            "-keystore".to_string(),
+            "keystore.jks".to_string(),
+        ];
+        let redacted = redact_args(&args);
+        assert_eq!(redacted.len(), 5);
+        assert_eq!(redacted[0], "keytool");
+        assert_eq!(redacted[1], "-storepass");
+        assert_eq!(redacted[2], "***");
+        assert_eq!(redacted[3], "-keystore");
+        assert_eq!(redacted[4], "keystore.jks");
+
+        let args_apksigner: Vec<String> = vec![
+            "apksigner".to_string(),
+            "sign".to_string(),
+            "--ks".to_string(),
+            "my.keystore".to_string(),
+            "--ks-pass".to_string(),
+            "pass:secret123".to_string(),
+            "app.apk".to_string(),
+        ];
+        let redacted_apk = redact_args(&args_apksigner);
+        assert_eq!(redacted_apk.len(), 7);
+        assert_eq!(redacted_apk[4], "--ks-pass");
+        assert_eq!(redacted_apk[5], "***");
+    }
 }
