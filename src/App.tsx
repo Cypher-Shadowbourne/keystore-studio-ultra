@@ -180,7 +180,18 @@ export default function App() {
         createdAt: projectDraft.createdAt || nowIso(),
       };
       const saved = await upsertProject(payload);
-      const refreshed = [...projects.filter((p) => p.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name));
+      const refreshed: ProjectRecord[] = [];
+      let inserted = false;
+      for (let i = 0; i < projects.length; i++) {
+        const p = projects[i];
+        if (p.id === saved.id) continue;
+        if (!inserted && p.name.localeCompare(saved.name) > 0) {
+          refreshed.push(saved);
+          inserted = true;
+        }
+        refreshed.push(p);
+      }
+      if (!inserted) refreshed.push(saved);
       setProjects(refreshed);
       setSelectedProjectId(saved.id);
       setProjectDraft(saved);
