@@ -5,7 +5,9 @@ use crate::error::AppError;
 
 pub fn ensure_parent_dir(path: &Path) -> Result<(), AppError> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
     }
     Ok(())
 }
@@ -98,4 +100,64 @@ pub fn discover_artifacts(project_root: &str) -> Vec<DiscoveredArtifact> {
     }
 
     discovered
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+    use std::path::Path;
+
+    #[test]
+    fn test_ensure_parent_dir_creates_directory() {
+        let dir = tempdir().unwrap();
+        // The parent directory 'subdir' does not exist yet.
+        let target_file = dir.path().join("subdir").join("file.txt");
+        let parent_dir = target_file.parent().unwrap();
+
+        assert!(!parent_dir.exists());
+
+        let result = ensure_parent_dir(&target_file);
+        assert!(result.is_ok());
+
+        // Now 'subdir' should exist and be a directory.
+        assert!(parent_dir.exists());
+        assert!(parent_dir.is_dir());
+    }
+
+    #[test]
+    fn test_ensure_parent_dir_already_exists() {
+        let dir = tempdir().unwrap();
+        // Create the 'subdir' before calling ensure_parent_dir.
+        let subdir = dir.path().join("subdir");
+        fs::create_dir(&subdir).unwrap();
+
+        let target_file = subdir.join("file.txt");
+
+        assert!(subdir.exists());
+
+        // Calling ensure_parent_dir should succeed and not fail.
+        let result = ensure_parent_dir(&target_file);
+        assert!(result.is_ok());
+        assert!(subdir.exists());
+    }
+
+    #[test]
+    fn test_ensure_parent_dir_empty_parent() {
+        // Path with an empty parent string (just a filename)
+        let target_file = Path::new("file.txt");
+        let result = ensure_parent_dir(target_file);
+        // It shouldn't crash or return error
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_ensure_parent_dir_no_parent() {
+        // Path with no parent (root directory)
+        let target_file = Path::new("/");
+        let result = ensure_parent_dir(target_file);
+        // Returns Ok as path.parent() is None
+        assert!(result.is_ok());
+    }
 }
